@@ -1,4 +1,4 @@
-package com.lira.laridaritugas;
+package com.lira.laridaritugas.playgame;
 
 import android.app.Activity;
 import android.content.Context;
@@ -6,7 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
-import android.graphics.Rect;
+import android.graphics.RectF;
 import android.view.Display;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -20,29 +20,47 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
     Thread gameThread = null;
     SurfaceHolder ourHolder;
 
-    // Kondisi game
+    // game condition
     volatile boolean isPlaying;
     boolean isPaused = true;
 
-    // Object in the game
+    // array of parallax image
     ArrayList<ParallaxImage> parallaxImages;
+
+    // player and obstacle object
     Player player;
+    ObstacleSpawner obstacleSpawner;
+
+    // canvas
     Canvas canvas;
     Paint paint;
     Context context;
 
-    // Hitung fps
-    long fps;
+    // count the fps
+    public static long fps;
     private long timeThisFrame;
 
-    // Resolusi layar
-    private int screenX;
-    private int screenY;
+    // screen resolution
+    private int screenX, screenY;
+    public static float screenRatioX, screenRatioY;
 
-    // Penghitung skor
+    // score
     int score;
 
-    // Kondisi input
+    // game speed
+    private float defaultGameSpeed = 500;
+    private float updatedGameSpeed;
+
+    // game end
+    private GameEnd gameEnd;
+
+    // game state
+    private int gameState = 0;
+    private final int PRESTART = 0;
+    private final int GAMESTART = 1;
+    private final int GAMEEND = 2;
+
+    // input gesture
     private static int MIN_DISTANCE = 150;
     GestureDetector gestureDetector;
     private float pressY, upY;
@@ -51,45 +69,59 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
         super(context);
 
         this.context = context;
+
+        // initialize input gesture detector
         gestureDetector = new GestureDetector(context, this);
 
-        // Objek Display untuk mendapatkan detail layar
+        // get screen resolution
         Display display = ((Activity) getContext()).getWindowManager().getDefaultDisplay();
-        // Simpan resolusi di objek Point
         Point size = new Point();
         display.getSize(size);
-
-        // resolusi layar
         screenX = size.x;
         screenY = size.y;
 
-        // canvas
+        screenRatioX = 1920f / screenX;
+        screenRatioY = 1080f / screenY;
+
+        // initialize canvas
         ourHolder = getHolder();
         paint = new Paint();
 
-        // buat objek player
-        player = new Player(this.context,200, 700);
+        // initialize game speed
+        updatedGameSpeed = defaultGameSpeed;
 
-        // buat objek parallax
+        // initialize player object
+        player = new Player(
+                this.context,
+                200,
+                95f / 100f * screenY
+        );
+
+        // initialize array parallax image
         parallaxImages = new ArrayList<>();
 
-        // UBAH GAMBAR BACKGROUND
+        // add background image to array parallax image
         parallaxImages.add(new ParallaxImage(
                 this.context,
                 screenX,
                 screenY,
-                "bg", 0, 100, 500
+                "bgplay", 0, 100, updatedGameSpeed,
+                false
         ));
 
-        // UBAH GAMBAR GROUND
-        parallaxImages.add(new ParallaxImage(
+        // initialize obstacle object
+        obstacleSpawner = new ObstacleSpawner(
                 this.context,
                 screenX,
-                screenY,
-                "ground", 70, 100, 500
-        ));
+                95f / 100f * screenY,
+                player.getPlayerHeight(),
+                player.getJumpHeight(),
+                updatedGameSpeed
+        );
 
-        // score ke 0
+        gameEnd = new GameEnd(this.context, screenX, screenY);
+
+        // start new game
         newGame();
     }
 
@@ -112,71 +144,82 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
     }
 
     public void update() {
-        // Player update
+
+        // update player
         player.update();
 
-        // Parallax image
-        for (ParallaxImage pi : parallaxImages)
-            pi.update(fps);
+        // update obstacle
+        obstacleSpawner.update();
 
+        // counting score
         scoreCount();
-    }
 
-    public void newGame() {
-        score = 0;
-    }
+        // update parallax image
+        for (ParallaxImage pi : parallaxImages)
+            pi.update();
 
-    public void scoreCount() {
-        // Score update
-        score += 10;
+        for (Obstacle ob : obstacleSpawner.obstacleObject)
+            if (RectF.intersects(player.getPlayerCollider(), ob.getObstacleCollider())) {
+                lose();
+            }
+
     }
 
     private void draw() {
         if (ourHolder.getSurface().isValid()) {
             canvas = ourHolder.lockCanvas();
-
             canvas.drawColor(Color.argb(255,  26, 128, 182));
+            paint.setColor(Color.argb(255,249,129,0));
+
+            // draw background
+            parallaxImages.get(0).draw(canvas, paint);
+
+            // draw player
+            if (!isPaused) {
+                player.startAnimation();
+            }
+
+            player.draw(canvas, paint);
+
+
+            // draw obstacle
+            obstacleSpawner.draw(canvas, paint);
+
+            // lose display
+            if (gameState == GAMEEND)
+            {
+                gameEnd.draw(canvas, paint);
+            }
+
 
             paint.setColor(Color.argb(255,249,129,0));
             paint.setTextSize(45);
-
-            // draw bg
-            drawParallaxImage(0);
-
-
-            // draw player
-            player.playerAnimation.getCurrentFrame();
-            canvas.drawBitmap(player.playerAnimation.getBitmapImage(),
-                    player.playerAnimation.getFrameToDraw(),
-                    player.getWhereToDraw(),
-                    paint);
-
-            drawParallaxImage(1);
-
             canvas.drawText("Score : " + score, 20,40,paint);
-            canvas.drawText("Player State : " + player.getPlayerMovement(), 20,80,paint);
+            canvas.drawText("FPS : " + fps, 20,80,paint);
 
             ourHolder.unlockCanvasAndPost(canvas);
         }
     }
 
-    private void drawParallaxImage(int position) {
+    private void lose()
+    {
 
-        ParallaxImage img = parallaxImages.get(position);
+        gameState = GAMEEND;
+        isPaused = true;
 
-        Rect fromRect1 = new Rect(0,0,img.width - img.xClip, img.height);
-        Rect toRect1 = new Rect(img.xClip, img.startY, img.width, img.endY);
+    }
 
-        Rect fromRect2 = new Rect(img.width - img.xClip,0, img.width, img.height);
-        Rect toRect2 = new Rect(0, img.startY, img.xClip, img.endY);
+    public void newGame()
+    {
+        // set score to 0
+        score = 0;
+        obstacleSpawner.resetObstacleSpawner(defaultGameSpeed);
+        player.resetPlayerState();
+    }
 
-        if (!img.reversedFirst) {
-            canvas.drawBitmap(img.image, fromRect1, toRect1, paint);
-            canvas.drawBitmap(img.imageReversed, fromRect2, toRect2, paint);
-        } else {
-            canvas.drawBitmap(img.image, fromRect2, toRect2, paint);
-            canvas.drawBitmap(img.imageReversed, fromRect1, toRect1, paint);
-        }
+    public void scoreCount() {
+        // update score
+        score += 1;
     }
 
     public void pause() {
@@ -201,7 +244,7 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
         switch (motionEvent.getAction() & MotionEvent.ACTION_MASK) {
 
-            // Pemain menyentuh layar
+            // player touch the screen
             case MotionEvent.ACTION_DOWN:
                 if (isPaused) {
                     isPaused = false;
@@ -210,12 +253,12 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
                 }
                 break;
 
-            // Pemain mengangkat sentuhan jari dari layar
+            // player stop touching the screen
             case MotionEvent.ACTION_UP:
                 if (!isPaused)
                     upY = motionEvent.getY();
 
-                if (pressY > upY && player.getPlayerMovement() != player.JUMPING)
+                if (pressY > upY && player.getPlayerMovement() != player.JUMPING && player.getPlayerMovement() != player.FALLING)
                     player.setPlayerMoving(player.JUMPING);
                 else if ((pressY < upY && player.getPlayerMovement() != player.SLIDING))
                     player.setPlayerMoving(player.SLIDING);

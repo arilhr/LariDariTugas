@@ -1,4 +1,4 @@
-package com.lira.laridaritugas;
+package com.lira.laridaritugas.playgame;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -30,10 +30,6 @@ public class ImageAnimation {
         frameToDraw = new Rect(0,0, frameWidth, frameHeight);
     }
 
-    public int getLength() { return frameWidth; }
-
-    public int getHeight() { return frameHeight; }
-
     public void getCurrentFrame() {
         long time = System.currentTimeMillis();
         if (time > lastFrameChangeTime + animationLength) {
@@ -47,6 +43,10 @@ public class ImageAnimation {
         frameToDraw.left = currentFrame * frameWidth;
         frameToDraw.right = frameToDraw.left + frameWidth;
     }
+
+    public int getLength() { return frameWidth; }
+
+    public int getHeight() { return frameHeight; }
 
     public Rect getFrameToDraw() {
         return frameToDraw;
