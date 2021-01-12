@@ -32,7 +32,7 @@ public class Player {
     private ImageAnimation playerRunAnimation;
 
     // player height
-    private float playerHeight = 320 * screenRatioY;
+    private float playerHeight = 400 * screenRatioY;
 
     // default y-axis position
     private float defaultYPosition;
@@ -63,9 +63,10 @@ public class Player {
 
     // sound
     SoundPool soundPool;
-    int runID = -1;
+    int loseID = -1;
     int jumpID = -1;
     int slideID = -1;
+
 
     // constructor
     Player(Context context, float xPosition, float yPosition) {
@@ -73,7 +74,7 @@ public class Player {
         playerJumpAnimation = new ImageAnimation(
                 context,
                 playerFile,
-                1600 / 8,
+                1600,
                 200,
                 8,
                 50);
@@ -81,7 +82,7 @@ public class Player {
         playerRunAnimation = new ImageAnimation(
                 context,
                 playerFile,
-                1600 / 8,
+                1600,
                 200,
                 8,
                 50);
@@ -89,7 +90,7 @@ public class Player {
         playerSlideAnimation = new ImageAnimation(
                 context,
                 playerFile,
-                1600 / 8,
+                1600,
                 200,
                 8,
                 50);
@@ -116,6 +117,9 @@ public class Player {
             AssetManager assetManager = context.getAssets();
             AssetFileDescriptor descriptor;
 
+            descriptor = assetManager.openFd("Lose.ogg");
+            loseID = soundPool.load(descriptor, 0);
+
             // Muat efek suara kita di memory yang siap digunakan
             descriptor = assetManager.openFd("Jump.ogg");
             jumpID = soundPool.load(descriptor, 0);
@@ -135,6 +139,7 @@ public class Player {
 
         // move player
         playerMovement();
+
 
         // update player gameobject
         playerObject.update();
@@ -156,7 +161,6 @@ public class Player {
                 playerObject.getWhereToDraw(),
                 paint
         );
-
     }
 
     public void startAnimation()
@@ -218,6 +222,8 @@ public class Player {
         if (playerObject.positionY < defaultYPosition)
         {
             playerObject.positionY += jumpSpeed / fps;
+            if (playerObject.positionY >= defaultYPosition)
+                playerObject.positionY = defaultYPosition;
         }
         else
         {
@@ -253,6 +259,11 @@ public class Player {
             playerObject.maintainResizeByY(playerHeight);
             setPlayerMoving(RUNNING);
         }
+    }
+
+    public void playerLose()
+    {
+        soundPool.play(loseID, 1, 1, 0,0,1);
     }
 
     private void UpdatePlayerCollider()

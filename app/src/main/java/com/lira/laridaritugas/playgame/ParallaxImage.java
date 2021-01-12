@@ -110,7 +110,7 @@ public class ParallaxImage {
         }
     }
 
-    public void setSpeed(int speed) {
+    public void setSpeed(float speed) {
         this.speed = speed;
     }
 }

@@ -2,27 +2,42 @@ package com.lira.laridaritugas.playgame;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.media.MediaPlayer;
+import android.os.Build;
+import android.os.CountDownTimer;
+import android.util.Log;
 import android.view.Display;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+import androidx.core.content.res.ResourcesCompat;
+
+import com.lira.laridaritugas.R;
+import com.lira.laridaritugas.mainmenu.MenuActivity;
+
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class GameView extends SurfaceView implements Runnable, GestureDetector.OnGestureListener {
 
     Thread gameThread = null;
     SurfaceHolder ourHolder;
+    public Typeface defaultTypeface;
 
     // game condition
     volatile boolean isPlaying;
-    boolean isPaused = true;
+    public static boolean isPaused = true;
 
     // array of parallax image
     ArrayList<ParallaxImage> parallaxImages;
@@ -46,22 +61,39 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
     // score
     int score;
+    int highScore;
+    SharedPreferences settings;
 
     // game speed
-    private float defaultGameSpeed = 500;
+    private float defaultGameSpeed = 450;
     private float updatedGameSpeed;
 
-    // game end
-    private GameEnd gameEnd;
+    // game prestart countdown
+    private CountDownTimer prestartCountdown;
+    private long startTime = 4000;
+    private long remainingTime;
+    String timerText = "" + startTime / 1000;
 
     // game state
-    private int gameState = 0;
-    private final int PRESTART = 0;
-    private final int GAMESTART = 1;
-    private final int GAMEEND = 2;
+    public int gameState;
+    public final int PRESTART = 0;
+    public final int GAMESTART = 1;
+    public final int GAMEEND = 2;
+    public final int GAMEPAUSE = 3;
+    private int stateBefore;
+
+    // gameend button
+    ImageAnimation restartButton;
+    ImageAnimation backMenuButton;
+    RectF restartButtonPos;
+    RectF backMenuButtonPos;
+
+    // backsound game
+    MediaPlayer mediaplayer;
+    int soundingameID = -1;
 
     // input gesture
-    private static int MIN_DISTANCE = 150;
+    private int MIN_DISTANCE = 150;
     GestureDetector gestureDetector;
     private float pressY, upY;
 
@@ -69,6 +101,9 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
         super(context);
 
         this.context = context;
+
+        // initialize typeface
+        defaultTypeface = ResourcesCompat.getFont(context, R.font.forwa);
 
         // initialize input gesture detector
         gestureDetector = new GestureDetector(context, this);
@@ -86,6 +121,13 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
         // initialize canvas
         ourHolder = getHolder();
         paint = new Paint();
+
+        // high score
+        settings = context.getSharedPreferences("GAME_DATA", Context.MODE_PRIVATE);
+        highScore = settings.getInt("HIGH_SCORE", 0);
+
+        // gamestate
+        gameState = PRESTART;
 
         // initialize game speed
         updatedGameSpeed = defaultGameSpeed;
@@ -119,10 +161,30 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
                 updatedGameSpeed
         );
 
-        gameEnd = new GameEnd(this.context, screenX, screenY);
+        // game button
+        restartButton = new ImageAnimation(context,
+                "restartbutton",
+                259,
+                186,
+                1,
+                0);
+
+        backMenuButton = new ImageAnimation(context,
+                "menubutton",
+                259,
+                186,
+                1,
+                0);
+
+        // initialize sound
+        mediaplayer = MediaPlayer.create(this.context, R.raw.ingame);
+        mediaplayer.setLooping(true);
+        mediaplayer.setVolume(1f, 1f);
 
         // start new game
         newGame();
+        startCountdown(startTime);
+        mediaplayer.start();
     }
 
     @Override
@@ -144,24 +206,30 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
     }
 
     public void update() {
-
         // update player
         player.update();
 
-        // update obstacle
-        obstacleSpawner.update();
+        if (gameState == GAMESTART)
+        {
+            // update obstacle
+            obstacleSpawner.update();
 
-        // counting score
-        scoreCount();
+            // update speed
+            speedUp();
+
+            // counting score
+            scoreCount();
+
+            for (Obstacle ob : obstacleSpawner.obstacleObject)
+                if (RectF.intersects(player.getPlayerCollider(), ob.getObstacleCollider())) {
+                    lose();
+                }
+        }
 
         // update parallax image
         for (ParallaxImage pi : parallaxImages)
             pi.update();
 
-        for (Obstacle ob : obstacleSpawner.obstacleObject)
-            if (RectF.intersects(player.getPlayerCollider(), ob.getObstacleCollider())) {
-                lose();
-            }
 
     }
 
@@ -170,6 +238,7 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
             canvas = ourHolder.lockCanvas();
             canvas.drawColor(Color.argb(255,  26, 128, 182));
             paint.setColor(Color.argb(255,249,129,0));
+            paint.setTypeface(defaultTypeface);
 
             // draw background
             parallaxImages.get(0).draw(canvas, paint);
@@ -181,49 +250,224 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
             player.draw(canvas, paint);
 
-
             // draw obstacle
             obstacleSpawner.draw(canvas, paint);
 
-            // lose display
-            if (gameState == GAMEEND)
-            {
-                gameEnd.draw(canvas, paint);
-            }
-
-
             paint.setColor(Color.argb(255,249,129,0));
             paint.setTextSize(45);
-            canvas.drawText("Score : " + score, 20,40,paint);
-            canvas.drawText("FPS : " + fps, 20,80,paint);
+            canvas.drawText("Score : " + score, 20,60,paint);
+            canvas.drawText("FPS : " + fps, 20,170,paint);
+
+            // game pre start
+            if (gameState == PRESTART)
+                drawGamePreStart(canvas, paint);
+
+            if (gameState == GAMEPAUSE)
+                drawGamePause(canvas, paint);
+
+            // lose display
+            if (gameState == GAMEEND)
+                drawGameEnd(canvas, paint);
 
             ourHolder.unlockCanvasAndPost(canvas);
         }
     }
 
+    /* GAME STATE */
     private void lose()
     {
+        if (score > highScore)
+        {
+            setHighScore(score);
+        }
 
+        player.playerLose();
         gameState = GAMEEND;
         isPaused = true;
-
     }
+
+    public void startGame()
+    {
+        gameState = GAMESTART;
+    }
+
 
     public void newGame()
     {
-        // set score to 0
+        // reset state
         score = 0;
+        updatedGameSpeed = defaultGameSpeed;
         obstacleSpawner.resetObstacleSpawner(defaultGameSpeed);
         player.resetPlayerState();
+
+        gameState = PRESTART;
+        isPaused = false;
     }
 
+    public void restartGame()
+    {
+        newGame();
+        startCountdown(startTime);
+    }
+
+    private void gamePausing()
+    {
+        isPaused = true;
+        stateBefore = gameState;
+        gameState = GAMEPAUSE;
+    }
+
+    /* END GAME STATE SETTING */
+
+    /* GAME COUNTDOWN */
+    private void startCountdown(long longTime)
+    {
+        prestartCountdown = new CountDownTimer(longTime, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                timerText = "" + millisUntilFinished/1000;
+                remainingTime = millisUntilFinished;
+            }
+
+            @Override
+            public void onFinish() {
+                startGame();
+            }
+        };
+
+        prestartCountdown.start();
+    }
+    /* END GAME COUNTDOWN */
+
+    /* DRAW VIEW GAME STATE */
+
+    private void drawGamePause(Canvas canvas, Paint paint)
+    {
+        paint.setColor(Color.argb(150, 0, 0, 0));
+        canvas.drawRect(0, 0, screenX, screenY, paint);
+
+        int fontSize = 60;
+        paint.setColor(Color.argb(255, 255, 255, 255));
+        paint.setTextSize(fontSize);
+        String pauseText = "touch to resume";
+        float xOffset = getApproxXToCenterText(pauseText, fontSize, screenX, paint);
+        canvas.drawText(pauseText, xOffset, screenY / 2f, paint);
+    }
+
+    private void drawGameEnd(Canvas canvas, Paint paint)
+    {
+        // back blackscreen
+        Rect blackScreen = new Rect(0, 0, screenX, screenY);
+
+        // button
+        float xSize = 400 * screenRatioX;
+        float ySize = 210 * screenRatioY;
+        float positionY = screenY - (100 * screenRatioY);
+        restartButtonPos = new RectF((screenX/2f) - (restartButton.getLength() + 100f * screenRatioX),
+                positionY - restartButton.getHeight(),
+                (screenX/2f) - (100f * screenRatioX),
+                positionY
+                );
+        backMenuButtonPos = new RectF((screenX/2f) + (100f * screenRatioX),
+                positionY - restartButton.getHeight(),
+                (screenX/2f) + (100f * screenRatioX) + backMenuButton.getLength(),
+                positionY
+        );
+
+
+        // font
+        int fontSize = (int)(120 * screenRatioY);
+        float xOffset;
+
+        paint.setColor(Color.argb(150,0,0,0));
+        canvas.drawRect(blackScreen, paint);
+
+        paint.setColor(Color.argb(255,255,255,255));
+        String finalScoreText = "SCORE : " + score;
+        xOffset = getApproxXToCenterText(finalScoreText, fontSize, screenX, paint);
+        canvas.drawText(finalScoreText, xOffset, screenY / 2f - (100f * screenRatioY), paint);
+
+        String highScoreText = "HIGH SCORE : " + highScore;
+        xOffset = getApproxXToCenterText(highScoreText, fontSize, screenX, paint);
+        canvas.drawText(highScoreText, xOffset, screenY / 2f + (100f * screenRatioY), paint);
+
+        // restart button
+        canvas.drawBitmap(restartButton.getBitmapImage(), restartButton.getFrameToDraw(), restartButtonPos, paint);
+
+        // back menu button
+        canvas.drawBitmap(backMenuButton.getBitmapImage(), backMenuButton.getFrameToDraw(), backMenuButtonPos, paint);
+    }
+
+    private void drawGamePreStart(Canvas canvas, Paint paint)
+    {
+        paint.setColor(Color.argb(255, 0, 0, 0));
+        int fontSize = 100;
+        float xOffset = getApproxXToCenterText(timerText, fontSize, screenX, paint);
+        canvas.drawText(timerText, xOffset, screenY / 2f, paint);
+    }
+
+    /* END DRAW VIEW GAME STATE */
+
+    /* GAME PROGRESSION */
     public void scoreCount() {
         // update score
         score += 1;
     }
 
+    public void setHighScore(int _score)
+    {
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putInt("HIGH_SCORE", _score);
+        editor.commit();
+
+        highScore = settings.getInt("HIGH_SCORE",0);
+    }
+
+    private void speedUp()
+    {
+        if (score < 2000)
+        {
+            updatedGameSpeed += 1 / 5f;
+        }
+        else if (score < 5000)
+        {
+            updatedGameSpeed += 1 / 10f;
+        }
+        else
+        {
+            updatedGameSpeed += 1 / 20f;
+        }
+
+
+        for (ParallaxImage p : parallaxImages)
+            p.setSpeed(updatedGameSpeed);
+
+        obstacleSpawner.updateSpeed(updatedGameSpeed);
+    }
+
+    /* END GAME PROGRESSION */
+
+    public static float getApproxXToCenterText(String text, int fontSize, int widthToFitStringInto, Paint p) {
+        Rect bounds = new Rect();
+        p.setTextSize(fontSize);
+        p.getTextBounds(text, 0, text.length(), bounds);
+        float xOffset = widthToFitStringInto / 2f - bounds.width() / 2f;
+
+        return xOffset;
+    }
+
     public void pause() {
         isPlaying = false;
+        if (gameState == PRESTART)
+        {
+            prestartCountdown.cancel();
+        }
+        if (gameState != GAMEEND)
+        {
+            gamePausing();
+        }
+        mediaplayer.pause();
+
         try {
             gameThread.join();
         } catch (InterruptedException e) {
@@ -233,24 +477,51 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
     public void resume() {
         isPlaying = true;
+        mediaplayer.start();
+
         gameThread = new Thread(this);
         gameThread.start();
+    }
+
+    public void destroy()
+    {
+        mediaplayer.stop();
+        mediaplayer.release();
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent motionEvent) {
 
         gestureDetector.onTouchEvent(motionEvent);
+        int x = (int)motionEvent.getX(0);
+        int y = (int)motionEvent.getY(0);
 
         switch (motionEvent.getAction() & MotionEvent.ACTION_MASK) {
 
             // player touch the screen
             case MotionEvent.ACTION_DOWN:
-                if (isPaused) {
+                if (gameState == GAMEPAUSE) {
                     isPaused = false;
+                    gameState = stateBefore;
+                    if (gameState == PRESTART)
+                    {
+                        startCountdown(remainingTime);
+                    }
                 } else {
                     pressY = motionEvent.getY();
                 }
+
+                if (gameState == GAMEEND)
+                {
+                    if (backMenuButtonPos.contains(x,y)) {
+                        context.startActivity(new Intent(context, MenuActivity.class));
+                    }
+
+                    if (restartButtonPos.contains(x,y)) {
+                        restartGame();
+                    }
+                }
+
                 break;
 
             // player stop touching the screen
@@ -258,10 +529,17 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
                 if (!isPaused)
                     upY = motionEvent.getY();
 
-                if (pressY > upY && player.getPlayerMovement() != player.JUMPING && player.getPlayerMovement() != player.FALLING)
-                    player.setPlayerMoving(player.JUMPING);
-                else if ((pressY < upY && player.getPlayerMovement() != player.SLIDING))
-                    player.setPlayerMoving(player.SLIDING);
+                if (pressY > upY && player.getPlayerMovement() != player.JUMPING && player.getPlayerMovement() != player.FALLING) {
+                    if (pressY - upY > MIN_DISTANCE)
+                        player.setPlayerMoving(player.JUMPING);
+                }
+                else if (pressY < upY && player.getPlayerMovement() != player.SLIDING)
+                {
+                    if (upY - pressY > MIN_DISTANCE)
+                        player.setPlayerMoving(player.SLIDING);
+                }
+
+
                 break;
 
         }

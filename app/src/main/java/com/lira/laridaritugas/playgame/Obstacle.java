@@ -36,7 +36,7 @@ public class Obstacle {
     private float spawnXPosition;
     public boolean isMoving = false;
     public float speed;
-    private float obstacleSize = 150;
+    private float obstacleSize = 200;
 
     Obstacle(Context context, float spawnXPosition, float yPosition, float playerHeight, float playerJumpHeight, float speed) {
 
@@ -59,8 +59,8 @@ public class Obstacle {
         flyingObstacleAnimations.add(new ImageAnimation(
                 context,
                 "obsfly1",
-                125,
-                125,
+                163,
+                180,
                 1,
                 100
         ));
@@ -68,8 +68,8 @@ public class Obstacle {
         flyingObstacleAnimations.add(new ImageAnimation(
                 context,
                 "obsfly2",
-                125,
-                125,
+                163,
+                180,
                 1,
                 100
         ));
@@ -77,8 +77,8 @@ public class Obstacle {
         flyingObstacleAnimations.add(new ImageAnimation(
                 context,
                 "obsfly3",
-                125,
-                125,
+                163,
+                180,
                 1,
                 100
         ));
@@ -87,8 +87,8 @@ public class Obstacle {
         groundedObstacleAnimations.add(new ImageAnimation(
                 context,
                 "obsground1",
-                125,
-                125,
+                358,
+                180,
                 2,
                 200
         ));
@@ -96,8 +96,8 @@ public class Obstacle {
         groundedObstacleAnimations.add(new ImageAnimation(
                 context,
                 "obsground2",
-                125,
-                125,
+                358,
+                180,
                 2,
                 200
         ));
@@ -105,8 +105,8 @@ public class Obstacle {
         groundedObstacleAnimations.add(new ImageAnimation(
                 context,
                 "obsground3",
-                125,
-                125,
+                358,
+                180,
                 2,
                 200
         ));

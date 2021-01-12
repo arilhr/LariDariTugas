@@ -18,16 +18,20 @@ public class ImageAnimation {
     private Rect frameToDraw;
 
     ImageAnimation(Context context, String imageName, int frameWidth, int frameHeight, int frameCount, int animationLength) {
-        int resID = context.getResources().getIdentifier(imageName, "drawable", context.getPackageName());
-        imageAnimation = BitmapFactory.decodeResource(context.getResources(), resID);
-        imageAnimation = Bitmap.createScaledBitmap(imageAnimation, frameWidth * frameCount, frameHeight, false);
-
-        this.frameWidth = frameWidth;
-        this.frameHeight = frameHeight;
         this.frameCount = frameCount;
+        this.frameWidth = frameWidth / frameCount;
+        this.frameHeight = frameHeight;
         this.animationLength = animationLength;
 
-        frameToDraw = new Rect(0,0, frameWidth, frameHeight);
+        int resID = context.getResources().getIdentifier(imageName, "drawable", context.getPackageName());
+        imageAnimation = BitmapFactory.decodeResource(context.getResources(), resID);
+        imageAnimation = Bitmap.createScaledBitmap(
+                imageAnimation,
+                this.frameWidth * this.frameCount,
+                this.frameHeight,
+                false);
+
+        frameToDraw = new Rect(0,0, this.frameWidth, this.frameHeight);
     }
 
     public void getCurrentFrame() {
