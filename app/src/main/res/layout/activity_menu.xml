@@ -21,15 +21,6 @@
             android:layout_gravity="center" />
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/game_description"
-            android:fontFamily="@font/forwa"
-            android:textSize="12sp"
-            android:textColor="@color/titlecolor"
-            android:layout_gravity="center" />
-
-        <TextView
             android:id="@+id/highScore"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -16,27 +16,18 @@
             android:layout_height="wrap_content"
             android:text="@string/app_name"
             android:fontFamily="@font/forwa"
-            android:textSize="85sp"
+            android:textSize="90sp"
             android:textColor="@color/titlecolor"
             android:layout_gravity="center" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/game_description"
-            android:fontFamily="@font/forwa"
-            android:textSize="25sp"
-            android:textColor="@color/titlecolor"
-            android:layout_gravity="center" />
 
         <TextView
             android:id="@+id/highScore"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="15dp"
-            android:text="High Score :"
             android:fontFamily="@font/forwa"
-            android:textSize="20sp"
+            android:textSize="30sp"
             android:textColor="@color/titlecolor"
             android:layout_gravity="center" />
 

@@ -3,4 +3,14 @@
     <string name="game_description">GAME EDUKASI UNTUK MAHASISWA</string>
     <string name="playButton">play</string>
     <string name="creditButton">credit</string>
+    <string name="credit">CREDIT</string>
+    <string name="nrp1">4210191002</string>
+    <string name="dev1">IRFAN MUHAMMAD</string>
+    <string name="nrp2">4210191014</string>
+    <string name="dev2">AURIEL HARLIH RIZKINANDA</string>
+    <string name="nrp3">4210191023</string>
+    <string name="dev3">NATHAN ANDRO TRI ARAUNA</string>
+    <string name="penslogo">penslogo</string>
+    <string name="gametechlogo">gametechlogo</string>
+    <string name="menubutton">menubutton</string>
 </resources>
