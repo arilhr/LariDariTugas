@@ -346,18 +346,19 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
     private void drawGameStartHUD(Canvas canvas, Paint paint)
     {
-        int fontSize = 45;
+        int fontSize = 30;
 
-        paint.setColor(Color.argb(255,249,129,0));
+        paint.setColor(Color.argb(255,0,0,0));
         paint.setTextSize(fontSize);
         if (highScore > score)
-            canvas.drawText("High Score : " + highScore, 30,120 * screenRatioY, paint);
+            canvas.drawText("High Score : " + highScore, 30,80 * screenRatioY, paint);
         else
-            canvas.drawText("High Score : " + score, 30,120 * screenRatioY, paint);
-        canvas.drawText("Score : " + score, 30,220 * screenRatioY, paint);
+            canvas.drawText("High Score : " + score, 30,80 * screenRatioY, paint);
+
+        canvas.drawText("Score : " + score, 30,165 * screenRatioY, paint);
 
         // show fps
-        canvas.drawText("FPS : " + fps, screenX / 2f,120 * screenRatioY, paint);
+        canvas.drawText("FPS : " + fps, screenX / 2f,80 * screenRatioY, paint);
     }
 
 

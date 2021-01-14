@@ -24,7 +24,8 @@ public class Player {
     private GameObject playerObject;
 
     // name player file
-    private String playerFile = "run";
+    private String playerRun = "run";
+    private String playerSlide = "slide";
 
     // player state animation
     private ImageAnimation playerJumpAnimation;
@@ -33,6 +34,7 @@ public class Player {
 
     // player height
     private float playerHeight = 400 * screenRatioY;
+    private float playerSlideHeight = 190 * screenRatioY;
 
     // default y-axis position
     private float defaultYPosition;
@@ -46,7 +48,8 @@ public class Player {
 
     // player slide stats
     private long startSlideTime = 0;
-    private long slideTime = 800;
+    private long slideTime = 1000;
+
 
     // player state
     public final int RUNNING = 0;
@@ -59,7 +62,12 @@ public class Player {
 
     // player collider
     private RectF playerCollider;
-    private int playerColliderSizeX = 60;
+    private float leftCollider;
+    private float topCollider;
+    private float rightCollider;
+    private float bottomCollider;
+    private float slideColliderX = 322 * screenRatioY;
+    private float runColliderX = 60 * screenRatioY;
 
     // sound
     SoundPool soundPool;
@@ -67,13 +75,12 @@ public class Player {
     int jumpID = -1;
     int slideID = -1;
 
-
     // constructor
     Player(Context context, float xPosition, float yPosition) {
         // add player animation from every state
         playerJumpAnimation = new ImageAnimation(
                 context,
-                playerFile,
+                playerRun,
                 1600,
                 200,
                 8,
@@ -81,7 +88,7 @@ public class Player {
 
         playerRunAnimation = new ImageAnimation(
                 context,
-                playerFile,
+                playerRun,
                 1600,
                 200,
                 8,
@@ -89,11 +96,11 @@ public class Player {
 
         playerSlideAnimation = new ImageAnimation(
                 context,
-                playerFile,
-                1600,
-                200,
-                8,
-                50);
+                playerSlide,
+                774,
+                120,
+                3,
+                70);
 
         // inisialisasi player gameobject
         playerObject = new GameObject(playerRunAnimation, xPosition, yPosition);
@@ -101,8 +108,12 @@ public class Player {
         // set player height
         playerObject.maintainResizeByY(playerHeight * screenRatioY);
 
-        // player collider
-        UpdatePlayerCollider();
+        // player run collider
+        changeCollider(
+                playerObject.sizeX / 2f - runColliderX,
+                playerObject.sizeY,
+                playerObject.sizeX / 2f + runColliderX,
+                0);
 
         // inisialisasi default and jump y-position
         this.defaultYPosition = playerObject.positionY;
@@ -150,9 +161,9 @@ public class Player {
 
     public void draw(Canvas canvas, Paint paint)
     {
-        // draw collider
-//        paint.setColor(Color.argb(255,249,129,0));
-//        canvas.drawRect(playerCollider, paint);
+        // debug check collider
+        // paint.setColor(Color.argb(255,249,129,0));
+        // canvas.drawRect(playerCollider, paint);
 
         // draw player
         canvas.drawBitmap(
@@ -195,8 +206,13 @@ public class Player {
         // change player animation to jump state
         if (playerObject.getObjectAnimation() != playerJumpAnimation)
         {
-            playerObject.maintainResizeByY(playerHeight);
             playerObject.setObjectAnimation(playerJumpAnimation);
+            playerObject.maintainResizeByY(playerHeight);
+            changeCollider(
+                    playerObject.sizeX / 2f - runColliderX,
+                    playerObject.sizeY,
+                    playerObject.sizeX / 2f + runColliderX,
+                    0);
             soundPool.play(jumpID, 1, 1, 0, 0, 1);
         }
 
@@ -236,8 +252,14 @@ public class Player {
         // change player animation to running
         if (playerObject.getObjectAnimation() != playerRunAnimation)
         {
-            playerObject.maintainResizeByY(playerHeight);
             playerObject.setObjectAnimation(playerRunAnimation);
+            playerObject.maintainResizeByY(playerHeight);
+            changeCollider(
+                    playerObject.sizeX / 2f - runColliderX,
+                    playerObject.sizeY,
+                    playerObject.sizeX / 2f + runColliderX,
+                    0);
+
         }
     }
 
@@ -249,6 +271,12 @@ public class Player {
             startSlideTime = time;
             playerObject.setObjectAnimation(playerSlideAnimation);
             playerObject.positionY = defaultYPosition;
+            playerObject.maintainResizeByY(playerSlideHeight);
+            changeCollider(
+                    20f/100f * playerObject.sizeX,
+                    playerObject.sizeY,
+                    20f/100f * playerObject.sizeX + slideColliderX,
+                    0);
             soundPool.play(slideID, 1, 1, 0, 0, 1);
         }
 
@@ -256,7 +284,6 @@ public class Player {
         // if sliding time is run out, player state change to running
         if (time >= startSlideTime + slideTime)
         {
-            playerObject.maintainResizeByY(playerHeight);
             setPlayerMoving(RUNNING);
         }
     }
@@ -268,12 +295,20 @@ public class Player {
 
     private void UpdatePlayerCollider()
     {
-        playerCollider = new RectF(
-                playerObject.positionX + (playerObject.sizeX / 2) - playerColliderSizeX,
-                playerObject.positionY - playerObject.sizeY,
-                playerObject.positionX + (playerObject.sizeX / 2) + playerColliderSizeX,
-                playerObject.positionY
-        );
+            playerCollider = new RectF(
+                    playerObject.positionX + leftCollider,
+                    playerObject.positionY - topCollider,
+                    playerObject.positionX + rightCollider,
+                    playerObject.positionY + bottomCollider
+            );
+    }
+
+    private void changeCollider(float left, float top, float right, float bottom)
+    {
+        leftCollider = left;
+        topCollider = top;
+        rightCollider = right;
+        bottomCollider = bottom;
     }
 
     public void resetPlayerState()
