@@ -61,6 +61,7 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
     // score
     int score;
+    boolean newHighscore = false;
     int highScore;
     SharedPreferences settings;
 
@@ -124,7 +125,6 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
         // high score
         settings = context.getSharedPreferences("GAME_DATA", Context.MODE_PRIVATE);
-        highScore = settings.getInt("HIGH_SCORE", 0);
 
         // gamestate
         gameState = PRESTART;
@@ -233,45 +233,7 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
     }
 
-    private void draw() {
-        if (ourHolder.getSurface().isValid()) {
-            canvas = ourHolder.lockCanvas();
-            canvas.drawColor(Color.argb(255,  26, 128, 182));
-            paint.setColor(Color.argb(255,249,129,0));
-            paint.setTypeface(defaultTypeface);
 
-            // draw background
-            parallaxImages.get(0).draw(canvas, paint);
-
-            // draw player
-            if (!isPaused) {
-                player.startAnimation();
-            }
-
-            player.draw(canvas, paint);
-
-            // draw obstacle
-            obstacleSpawner.draw(canvas, paint);
-
-            paint.setColor(Color.argb(255,249,129,0));
-            paint.setTextSize(45);
-            canvas.drawText("Score : " + score, 20,60,paint);
-            canvas.drawText("FPS : " + fps, 20,170,paint);
-
-            // game pre start
-            if (gameState == PRESTART)
-                drawGamePreStart(canvas, paint);
-
-            if (gameState == GAMEPAUSE)
-                drawGamePause(canvas, paint);
-
-            // lose display
-            if (gameState == GAMEEND)
-                drawGameEnd(canvas, paint);
-
-            ourHolder.unlockCanvasAndPost(canvas);
-        }
-    }
 
     /* GAME STATE */
     private void lose()
@@ -279,6 +241,9 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
         if (score > highScore)
         {
             setHighScore(score);
+            newHighscore = true;
+        } else {
+            newHighscore = false;
         }
 
         player.playerLose();
@@ -288,6 +253,7 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
     public void startGame()
     {
+        highScore = settings.getInt("HIGH_SCORE", 0);
         gameState = GAMESTART;
     }
 
@@ -339,7 +305,61 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
     }
     /* END GAME COUNTDOWN */
 
-    /* DRAW VIEW GAME STATE */
+    /* DRAW VIEW GAME */
+    private void draw() {
+        if (ourHolder.getSurface().isValid()) {
+            canvas = ourHolder.lockCanvas();
+            canvas.drawColor(Color.argb(255,  26, 128, 182));
+            paint.setColor(Color.argb(255,249,129,0));
+            paint.setTypeface(defaultTypeface);
+
+            // draw background
+            parallaxImages.get(0).draw(canvas, paint);
+
+            // draw player
+            if (!isPaused) {
+                player.startAnimation();
+            }
+
+            player.draw(canvas, paint);
+
+            // draw obstacle
+            obstacleSpawner.draw(canvas, paint);
+
+            if (gameState == GAMESTART)
+                drawGameStartHUD(canvas, paint);
+
+            // game pre start
+            if (gameState == PRESTART)
+                drawGamePreStart(canvas, paint);
+
+            if (gameState == GAMEPAUSE)
+                drawGamePause(canvas, paint);
+
+            // lose display
+            if (gameState == GAMEEND)
+                drawGameEnd(canvas, paint);
+
+            ourHolder.unlockCanvasAndPost(canvas);
+        }
+    }
+
+    private void drawGameStartHUD(Canvas canvas, Paint paint)
+    {
+        int fontSize = 45;
+
+        paint.setColor(Color.argb(255,249,129,0));
+        paint.setTextSize(fontSize);
+        if (highScore > score)
+            canvas.drawText("High Score : " + highScore, 30,120 * screenRatioY, paint);
+        else
+            canvas.drawText("High Score : " + score, 30,120 * screenRatioY, paint);
+        canvas.drawText("Score : " + score, 30,220 * screenRatioY, paint);
+
+        // show fps
+        canvas.drawText("FPS : " + fps, screenX / 2f,120 * screenRatioY, paint);
+    }
+
 
     private void drawGamePause(Canvas canvas, Paint paint)
     {
@@ -356,12 +376,50 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
 
     private void drawGameEnd(Canvas canvas, Paint paint)
     {
-        // back blackscreen
-        Rect blackScreen = new Rect(0, 0, screenX, screenY);
+        /* BACKGROUND */
+        paint.setColor(Color.argb(150,255,255,255));
+        canvas.drawRect(0, 0, screenX, screenY, paint);
+        /* END BACKGROUND */
 
-        // button
-        float xSize = 400 * screenRatioX;
-        float ySize = 210 * screenRatioY;
+        /* CONTENT */
+        int fontSize;
+        float xOffset;
+
+        // NEW HIGHSCORE
+        if (newHighscore)
+        {
+            // rect
+            float rectWidth = 804 * screenRatioX;
+            float rectHeight = 135 * screenRatioY;
+            float rectPositionY = 447 * screenRatioY;
+            paint.setColor(Color.argb(255,0,0,0));
+            canvas.drawRect(
+                    (screenX / 2f) - (rectWidth / 2f),
+                    (rectPositionY - rectHeight),
+                    (screenX / 2f) + (rectWidth / 2f),
+                    (rectPositionY),
+                    paint
+            );
+
+            // text
+            float newHighScoreTextPosition = 440 * screenRatioY;
+            fontSize = (int)(70 * screenRatioY);
+            paint.setColor(Color.argb(255,249,180,67));
+            String highScoreText = "NEW HIGHSCORE";
+            xOffset = getApproxXToCenterText(highScoreText, fontSize, screenX, paint);
+            canvas.drawText(highScoreText, xOffset, newHighScoreTextPosition, paint);
+        }
+
+        // SCORE
+        float scorePosition = 618 * screenRatioY;
+        fontSize = (int)(100 * screenRatioY);
+        paint.setColor(Color.argb(255,0,0,0));
+        String finalScoreText = "SCORE : " + score;
+        xOffset = getApproxXToCenterText(finalScoreText, fontSize, screenX, paint);
+        canvas.drawText(finalScoreText, xOffset, scorePosition, paint);
+        /* END CONTENT */
+
+        /* BUTTON */
         float positionY = screenY - (100 * screenRatioY);
         restartButtonPos = new RectF((screenX/2f) - (restartButton.getLength() + 100f * screenRatioX),
                 positionY - restartButton.getHeight(),
@@ -374,36 +432,65 @@ public class GameView extends SurfaceView implements Runnable, GestureDetector.O
                 positionY
         );
 
-
-        // font
-        int fontSize = (int)(120 * screenRatioY);
-        float xOffset;
-
-        paint.setColor(Color.argb(150,0,0,0));
-        canvas.drawRect(blackScreen, paint);
-
-        paint.setColor(Color.argb(255,255,255,255));
-        String finalScoreText = "SCORE : " + score;
-        xOffset = getApproxXToCenterText(finalScoreText, fontSize, screenX, paint);
-        canvas.drawText(finalScoreText, xOffset, screenY / 2f - (100f * screenRatioY), paint);
-
-        String highScoreText = "HIGH SCORE : " + highScore;
-        xOffset = getApproxXToCenterText(highScoreText, fontSize, screenX, paint);
-        canvas.drawText(highScoreText, xOffset, screenY / 2f + (100f * screenRatioY), paint);
-
-        // restart button
+        // RESTART BUTTON
         canvas.drawBitmap(restartButton.getBitmapImage(), restartButton.getFrameToDraw(), restartButtonPos, paint);
 
-        // back menu button
+        // BACK MENU BUTTON
         canvas.drawBitmap(backMenuButton.getBitmapImage(), backMenuButton.getFrameToDraw(), backMenuButtonPos, paint);
+        /* END BUTTON */
     }
 
     private void drawGamePreStart(Canvas canvas, Paint paint)
     {
+        int fontSize;
+        float xOffset;
+
+        /* COUNTDOWN TEXT */
+        fontSize = (int)(120 * screenRatioY);
         paint.setColor(Color.argb(255, 0, 0, 0));
-        int fontSize = 100;
-        float xOffset = getApproxXToCenterText(timerText, fontSize, screenX, paint);
+        xOffset = getApproxXToCenterText(timerText, fontSize, screenX, paint);
         canvas.drawText(timerText, xOffset, screenY / 2f, paint);
+        /* END COUNTDOWN TEXT */
+
+        /* HELP BG */
+        float rectWidth = 520 * screenRatioX;
+        float rectHeight = 185 * screenRatioY;
+        float rectPositionY = screenY;
+        paint.setColor(Color.argb(150, 255, 255, 255));
+        canvas.drawRect(
+                (screenX / 2f) - (rectWidth / 2f),
+                rectPositionY - rectHeight,
+                (screenX / 2f) + (rectWidth / 2f),
+                rectPositionY,
+                paint
+        );
+        /* END HELP BG */
+
+        /* HELP CONTENT */
+        // text
+        String swipeUp = "SWIPE UP TO JUMP";
+        String swipeDown = "SWIPE DOWN TO SLIDE";
+        float swipeUpTextPos = 960 * screenRatioY;
+        float swipeDownTextPos = 1035 * screenRatioY;
+        fontSize = (int)(35 * screenRatioY);
+        paint.setColor(Color.argb(255, 0, 0, 0));
+        xOffset = getApproxXToCenterText(swipeUp, fontSize, screenX, paint);
+        canvas.drawText(swipeUp, xOffset, swipeUpTextPos, paint);
+        xOffset = getApproxXToCenterText(swipeDown, fontSize, screenX, paint);
+        canvas.drawText(swipeDown, xOffset, swipeDownTextPos, paint);
+
+        // line
+        float lineWidth = 470 * screenRatioX;
+        float lineHeight = 8 * screenRatioY;
+        float linePositionY = 980 * screenRatioY;
+        canvas.drawRect(
+                (screenX / 2f) - (lineWidth / 2f),
+                (linePositionY) - (lineHeight),
+                (screenX / 2f) + (lineWidth / 2f),
+                linePositionY,
+                paint
+        );
+        /* END HELP CONTENT */
     }
 
     /* END DRAW VIEW GAME STATE */
